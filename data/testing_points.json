@@ -1,0 +1,80 @@
+[
+  {
+    "id": "TP-101",
+    "title": "Mobile screen par login OTP button disable nahi ho raha",
+    "description": "Testing point:\n1. Mobile screen par login page open karo.\n2. Mobile number daalo aur request OTP karo.\n3. OTP aane ke baad verify button dabane par infinite loading dikha raha hai aur error aata hai: 'device_token missing'.\nDeveloper please check auth controller.",
+    "module": "Login & Auth",
+    "priority": "High",
+    "status": "pending",
+    "createdBy": "Aakash (QA/Staff)",
+    "assignedTo": "Vikram Dev",
+    "attachments": [
+      {
+        "url": "https://images.unsplash.com/photo-1555421689-491a97ff2040?w=800&auto=format&fit=crop&q=60",
+        "name": "login-error-sample.jpg",
+        "size": 104200,
+        "uploadedAt": "2026-10-29T12:00:00.000Z"
+      }
+    ],
+    "comments": [
+      {
+        "id": "c1",
+        "author": "Aakash (QA/Staff)",
+        "role": "Staff/Tester",
+        "text": "Staging par verify kiya hai, Android aur iPhone dono me yahi issue aa raha hai.",
+        "attachments": [],
+        "createdAt": "2026-10-29T12:05:00.000Z"
+      }
+    ],
+    "createdAt": "2026-10-29T12:00:00.000Z",
+    "updatedAt": "2026-10-29T12:05:00.000Z"
+  },
+  {
+    "id": "TP-102",
+    "title": "Invoice PDF download me customer special characters corrupt ho rahe hai",
+    "description": "Testing observation:\nJab customer name me special characters jaise '&', '-' ya 12 digit se lamba order number hota hai, to generated invoice download nahi hoti aur corrupted file aati hai.\n\nDeveloper note: Encoding UTF-8 format me fix karna hoga.",
+    "module": "Billing",
+    "priority": "High",
+    "status": "process",
+    "createdBy": "Pooja (Staff)",
+    "assignedTo": "Rohit Dev",
+    "attachments": [],
+    "comments": [
+      {
+        "id": "c2",
+        "author": "Rohit Dev",
+        "role": "Developer",
+        "text": "Maine UTF-8 sanitize filter lagaya hai. Staging par deploy kar raha hoon test ke liye.",
+        "attachments": [],
+        "statusChange": "Moved to In Process",
+        "createdAt": "2026-10-29T12:15:00.000Z"
+      }
+    ],
+    "createdAt": "2026-10-29T11:00:00.000Z",
+    "updatedAt": "2026-10-29T12:15:00.000Z"
+  },
+  {
+    "id": "TP-103",
+    "title": "Staff management dashboard table header color light background me clear nahi tha",
+    "description": "Testing point:\nStaff list table ke header me text contrast issue tha, padhne me dikkat aa rahi thi.",
+    "module": "UI Design",
+    "priority": "Low",
+    "status": "done",
+    "createdBy": "Sneha (Tester)",
+    "assignedTo": "Kiran Dev",
+    "attachments": [],
+    "comments": [
+      {
+        "id": "c3",
+        "author": "Sneha (Tester)",
+        "role": "Staff/Tester",
+        "text": "Check kar liya hai, ab bilkul clear dikh raha hai. Checked & Done!",
+        "attachments": [],
+        "statusChange": "Marked Done",
+        "createdAt": "2026-10-29T12:20:00.000Z"
+      }
+    ],
+    "createdAt": "2026-10-29T10:00:00.000Z",
+    "updatedAt": "2026-10-29T12:20:00.000Z"
+  }
+]
