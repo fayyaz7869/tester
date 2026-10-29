@@ -307,24 +307,28 @@ function createPointCard(point) {
 
       <!-- Quick Comment Form -->
       <form class="add-comment-box" onsubmit="handleCommentSubmit(event, '${point.id}')">
-        <input type="text" class="name-input" name="commentAuthor" placeholder="Aapka Naam" style="width: 140px;" value="${escapeHtml(localStorage.getItem('tester_user_name') || '')}">
-        <select name="commentRole" style="padding: 0.45rem 0.5rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.82rem; outline: none; background: #fff;">
-          <option value="Developer">🛠️ Dev</option>
-          <option value="Staff/Tester">🧪 Tester</option>
-        </select>
+        <div class="comment-input-row">
+          <input type="text" class="name-input comment-author-input" name="commentAuthor" placeholder="Aapka Naam" value="${escapeHtml(localStorage.getItem('tester_user_name') || '')}">
+          <select name="commentRole" class="comment-role-select">
+            <option value="Developer">🛠️ Dev</option>
+            <option value="Staff/Tester">🧪 Tester</option>
+          </select>
+        </div>
         <textarea name="commentText" class="comment-input-textarea" placeholder="Developer correction ya tester reply likhein..." required></textarea>
         
-        <!-- Optional Comment Image -->
-        <label class="attach-btn-label" style="padding: 0.45rem 0.6rem;" title="Attach Image with comment">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-            <circle cx="8.5" cy="8.5" r="1.5"></circle>
-            <polyline points="21 15 16 10 5 21"></polyline>
-          </svg>
-          <input type="file" name="commentImage" accept="image/*" style="display: none;" onchange="handleCommentFileChange(this)">
-        </label>
+        <div class="comment-form-actions">
+          <label class="attach-btn-label comment-attach-label" title="Attach Image with comment">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            <span>Attach Photo</span>
+            <input type="file" name="commentImage" accept="image/*" style="display: none;" onchange="handleCommentFileChange(this)">
+          </label>
 
-        <button type="submit" class="comment-submit-btn">Post</button>
+          <button type="submit" class="comment-submit-btn">Post Comment</button>
+        </div>
       </form>
     </div>
   `;
