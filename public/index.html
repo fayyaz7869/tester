@@ -24,7 +24,30 @@
           <span class="dot"></span>
           <span id="storageBadgeText">Storage Ready</span>
         </div>
-        <button id="resetDemoBtn" class="reset-btn">
+
+        <!-- Logged In User Profile Bar -->
+        <div id="userProfileBar" class="user-profile-bar" style="display: none;">
+          <div class="user-info">
+            <span class="user-avatar" id="headerAvatar">👤</span>
+            <span class="user-name" id="headerUserName">User</span>
+            <span class="user-role-badge" id="headerUserRole">Tester</span>
+          </div>
+          <button id="logoutBtn" class="btn-logout" title="Sign out from this session">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            <span>Logout</span>
+          </button>
+        </div>
+
+        <!-- Open Auth Modal Button (shown if user logged out) -->
+        <button id="openAuthBtn" class="btn-primary" style="padding: 0.35rem 0.85rem; font-size: 0.82rem; display: none;">
+          🔑 Login / Sign Up
+        </button>
+
+        <button id="resetDemoBtn" class="reset-btn" title="Reset sample test points">
           Reset Demo
         </button>
       </div>
@@ -40,14 +63,17 @@
         <div class="add-card-title">
           <span>📝 Naya Testing Point Daalein</span>
         </div>
+        <div id="authorIndicator" class="author-indicator" style="display: none;">
+          Logged in as: <strong id="authorIndicatorName">-</strong> (<span id="authorIndicatorRole">-</span>)
+        </div>
       </div>
 
       <textarea id="inputPointText" class="point-textarea" placeholder="Yahan testing point likhein... (Bada text, steps to reproduce, actual vs expected sab allowed hai)"></textarea>
 
       <div class="add-card-bottom">
         <div class="add-inputs-group">
-          <!-- Staff Name -->
-          <input type="text" id="inputAuthor" class="name-input" placeholder="Aapka Naam (e.g. Rahul/Pooja)">
+          <!-- Staff Name (Auto-filled from logged-in user) -->
+          <input type="text" id="inputAuthor" class="name-input" placeholder="Aapka Naam">
 
           <!-- Image Attachment -->
           <label for="inputPointImage" class="attach-btn-label">
@@ -112,6 +138,92 @@
     </section>
 
   </main>
+
+  <!-- ================= AUTH MODAL (LOGIN & SIGNUP) ================= -->
+  <div id="authModal" class="auth-modal-overlay">
+    <div class="auth-modal-card">
+      <div class="auth-header">
+        <div class="auth-brand-icon">✓</div>
+        <h2 class="auth-title">Testing Point Hub</h2>
+        <p class="auth-sub">Staff &amp; Developer Collaboration Platform</p>
+      </div>
+
+      <!-- Auth Tabs: Sign In / Create Account -->
+      <div class="auth-tabs">
+        <button id="tabLoginBtn" class="auth-tab-btn active" type="button">
+          Sign In (Login)
+        </button>
+        <button id="tabSignupBtn" class="auth-tab-btn" type="button">
+          Create Account (Sign Up)
+        </button>
+      </div>
+
+      <!-- Alert Box for Errors/Success -->
+      <div id="authAlert" class="auth-alert" style="display: none;"></div>
+
+      <!-- LOGIN FORM -->
+      <form id="loginForm" class="auth-form">
+        <div class="auth-field">
+          <label class="auth-label">Email Address</label>
+          <input type="email" id="loginEmail" class="auth-input" placeholder="e.g. admin@shifteronline.com" required autocomplete="email">
+        </div>
+
+        <div class="auth-field">
+          <label class="auth-label">Password</label>
+          <div class="password-wrap">
+            <input type="password" id="loginPassword" class="auth-input" placeholder="Aapka password" required autocomplete="current-password">
+            <button type="button" class="toggle-pwd-btn" onclick="togglePasswordVisibility('loginPassword', this)">👁️</button>
+          </div>
+        </div>
+
+        <!-- Quick Fill Admin Credentials button for convenience -->
+        <button type="button" id="fillAdminBtn" class="btn-quick-admin">
+          ⚡ Pre-fill Admin Email (admin@shifteronline.com)
+        </button>
+
+        <button type="submit" id="submitLoginBtn" class="btn-auth-submit">
+          <span>Log In Karein ➔</span>
+        </button>
+      </form>
+
+      <!-- SIGNUP FORM -->
+      <form id="signupForm" class="auth-form" style="display: none;">
+        <div class="auth-field">
+          <label class="auth-label">Aapka Poora Naam (Full Name)</label>
+          <input type="text" id="signupName" class="auth-input" placeholder="e.g. Rahul Sharma" required>
+        </div>
+
+        <div class="auth-field">
+          <label class="auth-label">Email Address</label>
+          <input type="email" id="signupEmail" class="auth-input" placeholder="e.g. rahul@company.com" required autocomplete="email">
+        </div>
+
+        <div class="auth-field">
+          <label class="auth-label">Password (Min 4 characters)</label>
+          <div class="password-wrap">
+            <input type="password" id="signupPassword" class="auth-input" placeholder="Naya password banayein" minlength="4" required autocomplete="new-password">
+            <button type="button" class="toggle-pwd-btn" onclick="togglePasswordVisibility('signupPassword', this)">👁️</button>
+          </div>
+        </div>
+
+        <div class="auth-field">
+          <label class="auth-label">Aapka Role (Staff Role)</label>
+          <select id="signupRole" class="auth-input" style="cursor: pointer;">
+            <option value="Staff/Tester">🧪 Staff / QA Tester</option>
+            <option value="Developer">🛠️ Developer Team</option>
+          </select>
+        </div>
+
+        <button type="submit" id="submitSignupBtn" class="btn-auth-submit">
+          <span>Create Account &amp; Login ➔</span>
+        </button>
+      </form>
+
+      <div class="auth-footer-note">
+        Pre-set Admin: <code>admin@shifteronline.com</code>
+      </div>
+    </div>
+  </div>
 
   <!-- Lightbox Modal (For full screen image zoom) -->
   <div id="lightbox" class="lightbox">

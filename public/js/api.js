@@ -2,6 +2,35 @@
 const API_BASE = '/api';
 
 const API = {
+  // Auth API
+  async login(email, password) {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Login failed');
+    return data;
+  },
+
+  async signup(name, email, password, role) {
+    const res = await fetch(`${API_BASE}/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password, role })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Signup failed');
+    return data;
+  },
+
+  async getMe(email) {
+    const res = await fetch(`${API_BASE}/auth/me?email=${encodeURIComponent(email)}`);
+    if (!res.ok) return null;
+    return res.json();
+  },
+
   // Fetch system configuration (Cloudinary status)
   async getConfig() {
     const res = await fetch(`${API_BASE}/config`);

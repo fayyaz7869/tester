@@ -63,6 +63,29 @@ dev-qa-tracker/
 
 ---
 
+## 🔐 Admin & User Authentication (Login / Signup)
+
+Software me staff aur developer team ke liye authentication system shuru kar diya gaya hai:
+
+### 1. Pre-set Admin Account:
+- **Email**: `admin@shifteronline.com`
+- **Default Password**: `admin123`
+
+### 🔑 Admin Password Kahan Badalna Hai?
+Aap do aasan tareeqo se admin password set kar sakte hain:
+1. **`.env` file me**:
+   ```env
+   ADMIN_PASSWORD=apna_naya_password
+   ```
+2. **`server.js` file me line ~38 par**:
+   ```javascript
+   const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'apna_naya_password'; // <-- Yahan likhein
+   ```
+3. **Render.com par live karte waqt**:
+   Render Dashboard me **Environment** tab me ja kar `ADMIN_PASSWORD` variable add kar dein.
+
+---
+
 ## 💻 Local Machine Setup & Run
 
 ### 1. Requirements:

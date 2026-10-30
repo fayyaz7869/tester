@@ -1,0 +1,10 @@
+[
+  {
+    "id": "USR-ADMIN-01",
+    "name": "Super Admin",
+    "email": "admin@shifteronline.com",
+    "password": "admin123",
+    "role": "Admin",
+    "createdAt": "2026-10-30T10:00:00.000Z"
+  }
+]

@@ -4,7 +4,9 @@ const state = {
   activeTab: 'pending', // 'pending', 'process', 'done', 'all'
   searchQuery: '',
   points: [],
-  selectedImageFile: null
+  selectedImageFile: null,
+  currentUser: null,
+  adminEmail: 'admin@shifteronline.com'
 };
 
 // DOM References
@@ -13,7 +15,18 @@ const elements = {
   storageBadgeText: document.getElementById('storageBadgeText'),
   resetDemoBtn: document.getElementById('resetDemoBtn'),
 
+  // Header User Profile
+  userProfileBar: document.getElementById('userProfileBar'),
+  headerAvatar: document.getElementById('headerAvatar'),
+  headerUserName: document.getElementById('headerUserName'),
+  headerUserRole: document.getElementById('headerUserRole'),
+  logoutBtn: document.getElementById('logoutBtn'),
+  openAuthBtn: document.getElementById('openAuthBtn'),
+
   // Add Point Form
+  authorIndicator: document.getElementById('authorIndicator'),
+  authorIndicatorName: document.getElementById('authorIndicatorName'),
+  authorIndicatorRole: document.getElementById('authorIndicatorRole'),
   inputPointText: document.getElementById('inputPointText'),
   inputAuthor: document.getElementById('inputAuthor'),
   inputPointImage: document.getElementById('inputPointImage'),
@@ -33,6 +46,23 @@ const elements = {
 
   // List Container
   pointsList: document.getElementById('pointsList'),
+
+  // Auth Modal
+  authModal: document.getElementById('authModal'),
+  tabLoginBtn: document.getElementById('tabLoginBtn'),
+  tabSignupBtn: document.getElementById('tabSignupBtn'),
+  authAlert: document.getElementById('authAlert'),
+  loginForm: document.getElementById('loginForm'),
+  loginEmail: document.getElementById('loginEmail'),
+  loginPassword: document.getElementById('loginPassword'),
+  fillAdminBtn: document.getElementById('fillAdminBtn'),
+  submitLoginBtn: document.getElementById('submitLoginBtn'),
+  signupForm: document.getElementById('signupForm'),
+  signupName: document.getElementById('signupName'),
+  signupEmail: document.getElementById('signupEmail'),
+  signupPassword: document.getElementById('signupPassword'),
+  signupRole: document.getElementById('signupRole'),
+  submitSignupBtn: document.getElementById('submitSignupBtn'),
 
   // Lightbox
   lightbox: document.getElementById('lightbox'),
@@ -84,12 +114,81 @@ function formatDate(isoString) {
   return date.toLocaleDateString('hi-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+// Eye toggle for password visibility
+window.togglePasswordVisibility = function(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🔒';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁️';
+  }
+};
+
+// Check User Session on load
+function checkUserSession() {
+  try {
+    const rawUser = localStorage.getItem('devtest_user');
+    if (rawUser) {
+      state.currentUser = JSON.parse(rawUser);
+    }
+  } catch (err) {
+    state.currentUser = null;
+  }
+  updateUserUI();
+}
+
+// Update UI based on user session
+function updateUserUI() {
+  if (state.currentUser) {
+    elements.authModal.classList.remove('active');
+    elements.userProfileBar.style.display = 'flex';
+    elements.openAuthBtn.style.display = 'none';
+
+    elements.headerUserName.textContent = state.currentUser.name || 'User';
+    elements.headerUserRole.textContent = state.currentUser.role || 'Member';
+
+    elements.headerUserRole.className = 'user-role-badge';
+    if (state.currentUser.role === 'Admin') {
+      elements.headerUserRole.classList.add('role-admin');
+      elements.headerAvatar.textContent = '🛡️';
+    } else if (state.currentUser.role === 'Developer') {
+      elements.headerUserRole.classList.add('role-developer');
+      elements.headerAvatar.textContent = '🛠️';
+    } else {
+      elements.headerUserRole.classList.add('role-tester');
+      elements.headerAvatar.textContent = '🧪';
+    }
+
+    elements.authorIndicator.style.display = 'block';
+    elements.authorIndicatorName.textContent = state.currentUser.name;
+    elements.authorIndicatorRole.textContent = state.currentUser.role;
+    elements.inputAuthor.value = state.currentUser.name;
+  } else {
+    elements.userProfileBar.style.display = 'none';
+    elements.openAuthBtn.style.display = 'inline-flex';
+    elements.authorIndicator.style.display = 'none';
+    elements.inputAuthor.value = '';
+    elements.authModal.classList.add('active');
+  }
+}
+
+// Show alert inside Auth Modal
+function showAuthAlert(message, type = 'error') {
+  elements.authAlert.className = `auth-alert ${type}`;
+  elements.authAlert.innerHTML = `<span>${type === 'error' ? '⚠️' : '✓'}</span><span>${escapeHtml(message)}</span>`;
+  elements.authAlert.style.display = 'flex';
+}
+
+function hideAuthAlert() {
+  elements.authAlert.style.display = 'none';
+}
+
 // Initialize Application
 async function init() {
-  // Load saved author name
-  const savedName = localStorage.getItem('tester_user_name');
-  if (savedName) elements.inputAuthor.value = savedName;
-
+  checkUserSession();
   await checkConfig();
   await loadStats();
   await loadPoints();
@@ -100,6 +199,9 @@ async function init() {
 async function checkConfig() {
   try {
     const config = await API.getConfig();
+    if (config.adminEmail) {
+      state.adminEmail = config.adminEmail;
+    }
     if (config.cloudinaryEnabled) {
       elements.storageBadge.className = 'storage-badge active';
       elements.storageBadgeText.textContent = 'Cloudinary Active ☁️';
@@ -231,6 +333,20 @@ function createPointCard(point) {
     `;
   }
 
+  // Delete button permissions: Admin can delete any point; User can delete own point
+  const isAdmin = state.currentUser && state.currentUser.role === 'Admin';
+  const isOwner = state.currentUser && state.currentUser.name === point.createdBy;
+  const canDelete = isAdmin || isOwner;
+
+  const deleteBtnHtml = canDelete ? `
+    <button class="btn-delete" title="Delete Point" onclick="deletePoint('${point.id}')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      </svg>
+    </button>
+  ` : '';
+
   // Comments List HTML
   const comments = point.comments || [];
   let commentsHtml = '';
@@ -258,6 +374,10 @@ function createPointCard(point) {
     commentsHtml = `<div style="font-size: 0.82rem; color: #94a3b8; padding: 0.3rem 0;">Koi comment nahi hai. Niche se developer fix ya tester review daalein.</div>`;
   }
 
+  // Pre-fill comment author and role with logged in user
+  const commentAuthorVal = state.currentUser ? state.currentUser.name : (localStorage.getItem('tester_user_name') || '');
+  const isDev = state.currentUser && state.currentUser.role === 'Developer';
+
   card.innerHTML = `
     <!-- Card Header -->
     <div class="card-header">
@@ -267,12 +387,7 @@ function createPointCard(point) {
       </div>
       <div style="display: flex; align-items: center; gap: 0.75rem;">
         <span class="card-author-info">By: <strong>${escapeHtml(point.createdBy || 'Staff')}</strong> • ${formatDate(point.createdAt)}</span>
-        <button class="btn-delete" title="Delete Point" onclick="deletePoint('${point.id}')">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="3 6 5 6 21 6"></polyline>
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-          </svg>
-        </button>
+        ${deleteBtnHtml}
       </div>
     </div>
 
@@ -308,10 +423,10 @@ function createPointCard(point) {
       <!-- Quick Comment Form -->
       <form class="add-comment-box" onsubmit="handleCommentSubmit(event, '${point.id}')">
         <div class="comment-input-row">
-          <input type="text" class="name-input comment-author-input" name="commentAuthor" placeholder="Aapka Naam" value="${escapeHtml(localStorage.getItem('tester_user_name') || '')}">
+          <input type="text" class="name-input comment-author-input" name="commentAuthor" placeholder="Aapka Naam" value="${escapeHtml(commentAuthorVal)}" required>
           <select name="commentRole" class="comment-role-select">
-            <option value="Developer">🛠️ Dev</option>
-            <option value="Staff/Tester">🧪 Tester</option>
+            <option value="Developer" ${isDev ? 'selected' : ''}>🛠️ Dev</option>
+            <option value="Staff/Tester" ${!isDev ? 'selected' : ''}>🧪 Tester</option>
           </select>
         </div>
         <textarea name="commentText" class="comment-input-textarea" placeholder="Developer correction ya tester reply likhein..." required></textarea>
@@ -339,9 +454,10 @@ function createPointCard(point) {
 // 1-Click Status Change (Pending -> Process -> Done)
 async function changePointStatus(id, newStatus) {
   try {
+    const updatedBy = state.currentUser ? state.currentUser.name : (localStorage.getItem('tester_user_name') || 'Team Member');
     const updated = await API.updatePoint(id, {
       status: newStatus,
-      updatedBy: localStorage.getItem('tester_user_name') || 'Team Member'
+      updatedBy: updatedBy
     });
 
     const statusMsg = {
@@ -377,8 +493,8 @@ async function handleCommentSubmit(event, pointId) {
 
   try {
     const formData = new FormData();
-    formData.append('author', author || 'Team Member');
-    formData.append('role', role || 'Developer');
+    formData.append('author', author || (state.currentUser ? state.currentUser.name : 'Team Member'));
+    formData.append('role', role || (state.currentUser ? state.currentUser.role : 'Developer'));
     formData.append('text', text);
 
     if (fileInput.files && fileInput.files[0]) {
@@ -392,7 +508,7 @@ async function handleCommentSubmit(event, pointId) {
     showToast('Comment error: ' + err.message);
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Post';
+    submitBtn.textContent = 'Post Comment';
   }
 }
 
@@ -431,6 +547,111 @@ function closeLightbox() {
 
 // Setup Event Listeners
 function bindEvents() {
+  // Switch to Login Tab
+  elements.tabLoginBtn.addEventListener('click', () => {
+    elements.tabLoginBtn.classList.add('active');
+    elements.tabSignupBtn.classList.remove('active');
+    elements.loginForm.style.display = 'flex';
+    elements.signupForm.style.display = 'none';
+    hideAuthAlert();
+  });
+
+  // Switch to Signup Tab
+  elements.tabSignupBtn.addEventListener('click', () => {
+    elements.tabSignupBtn.classList.add('active');
+    elements.tabLoginBtn.classList.remove('active');
+    elements.signupForm.style.display = 'flex';
+    elements.loginForm.style.display = 'none';
+    hideAuthAlert();
+  });
+
+  // Quick fill Admin Email
+  elements.fillAdminBtn.addEventListener('click', () => {
+    elements.loginEmail.value = state.adminEmail || 'admin@shifteronline.com';
+    elements.loginPassword.focus();
+    showAuthAlert(`Admin email fill kar diya! Apna admin password enter karein.`, 'success');
+  });
+
+  // Open Auth Modal from header (if logged out)
+  elements.openAuthBtn.addEventListener('click', () => {
+    hideAuthAlert();
+    elements.authModal.classList.add('active');
+  });
+
+  // Logout button
+  elements.logoutBtn.addEventListener('click', () => {
+    localStorage.removeItem('devtest_user');
+    state.currentUser = null;
+    updateUserUI();
+    showToast('Aap successfully logout ho chuke hain');
+  });
+
+  // Login Form Submit
+  elements.loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideAuthAlert();
+
+    const email = elements.loginEmail.value.trim();
+    const password = elements.loginPassword.value.trim();
+
+    if (!email || !password) {
+      showAuthAlert('Email aur Password dono likhein!');
+      return;
+    }
+
+    elements.submitLoginBtn.disabled = true;
+    elements.submitLoginBtn.innerHTML = `<span>Checking credentials...</span>`;
+
+    try {
+      const res = await API.login(email, password);
+      state.currentUser = res.user;
+      localStorage.setItem('devtest_user', JSON.stringify(res.user));
+      updateUserUI();
+      showToast(`Swagat hai, ${res.user.name} (${res.user.role})!`);
+      elements.loginForm.reset();
+      await loadPoints();
+    } catch (err) {
+      showAuthAlert(err.message || 'Login failed. Password check karein.');
+    } finally {
+      elements.submitLoginBtn.disabled = false;
+      elements.submitLoginBtn.innerHTML = `<span>Log In Karein ➔</span>`;
+    }
+  });
+
+  // Signup Form Submit
+  elements.signupForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideAuthAlert();
+
+    const name = elements.signupName.value.trim();
+    const email = elements.signupEmail.value.trim();
+    const password = elements.signupPassword.value.trim();
+    const role = elements.signupRole.value;
+
+    if (!name || !email || !password) {
+      showAuthAlert('Sabhi fields bharna zaroori hai!');
+      return;
+    }
+
+    elements.submitSignupBtn.disabled = true;
+    elements.submitSignupBtn.innerHTML = `<span>Creating account...</span>`;
+
+    try {
+      const res = await API.signup(name, email, password, role);
+      state.currentUser = res.user;
+      localStorage.setItem('devtest_user', JSON.stringify(res.user));
+      updateUserUI();
+      showToast(`Account ban gaya! Welcome ${res.user.name}!`);
+      elements.signupForm.reset();
+      await loadPoints();
+    } catch (err) {
+      showAuthAlert(err.message || 'Signup failed.');
+    } finally {
+      elements.submitSignupBtn.disabled = false;
+      elements.submitSignupBtn.innerHTML = `<span>Create Account &amp; Login ➔</span>`;
+    }
+  });
+
   // Tab Switch (Pending -> Process -> Done -> All)
   elements.statusTabs.addEventListener('click', (e) => {
     const btn = e.target.closest('.tab-button');
@@ -473,8 +694,15 @@ function bindEvents() {
 
   // Submit New Testing Point
   elements.submitPointBtn.addEventListener('click', async () => {
+    // Check if user is logged in
+    if (!state.currentUser) {
+      elements.authModal.classList.add('active');
+      showAuthAlert('Testing point add karne ke liye pehle Login ya Sign Up karein!');
+      return;
+    }
+
     const text = elements.inputPointText.value.trim();
-    const author = elements.inputAuthor.value.trim() || 'Staff/Tester';
+    const author = elements.inputAuthor.value.trim() || (state.currentUser ? state.currentUser.name : 'Staff/Tester');
 
     if (!text && !state.selectedImageFile) {
       alert('Kripya testing point ka description likhein ya screenshot lagayein!');

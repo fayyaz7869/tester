@@ -29,6 +29,15 @@ if (isCloudinaryConfigured) {
   console.log('ℹ Cloudinary credentials not found. Using local disk upload fallback (/uploads).');
 }
 
+// ===================================================================
+// 🔐 ADMIN CREDENTIALS CONFIGURATION (Yahan Admin Email & Password Set Karein)
+// File: server.js
+// Render pe aap Environment Variables me ADMIN_PASSWORD add kar sakte hain,
+// ya direct niche diye ADMIN_PASSWORD me apna password likh sakte hain:
+// ===================================================================
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'admin@shifteronline.com').trim().toLowerCase();
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'; // <--- YAHAN APNA ADMIN PASSWORD LIKHEIN!
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -42,6 +51,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'testing_points.json');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
 // Ensure directories exist
 if (!fs.existsSync(PUBLIC_DIR)) fs.mkdirSync(PUBLIC_DIR, { recursive: true });
@@ -238,12 +248,170 @@ const generateNextId = (points) => {
   return `TP-${maxNum + 1}`;
 };
 
+// ================= USER & AUTH PERSISTENCE =================
+const loadUsers = () => {
+  let users = [];
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      const raw = fs.readFileSync(USERS_FILE, 'utf8');
+      users = JSON.parse(raw);
+    }
+  } catch (err) {
+    console.error('Error reading users file:', err);
+    users = [];
+  }
+
+  // Ensure Pre-Set Admin Account Always Exists and stays updated with ADMIN_PASSWORD
+  const adminIndex = users.findIndex(u => u.email && u.email.toLowerCase() === ADMIN_EMAIL);
+  const adminUserObj = {
+    id: 'USR-ADMIN-01',
+    name: 'Super Admin',
+    email: ADMIN_EMAIL,
+    password: ADMIN_PASSWORD,
+    role: 'Admin',
+    createdAt: new Date().toISOString()
+  };
+
+  if (adminIndex === -1) {
+    users.unshift(adminUserObj);
+    saveUsers(users);
+  } else {
+    // If admin password was changed in server.js or .env, keep it synced
+    if (users[adminIndex].password !== ADMIN_PASSWORD) {
+      users[adminIndex].password = ADMIN_PASSWORD;
+      users[adminIndex].role = 'Admin';
+      saveUsers(users);
+    }
+  }
+
+  return users;
+};
+
+const saveUsers = (users) => {
+  try {
+    const tempFile = `${USERS_FILE}.tmp`;
+    fs.writeFileSync(tempFile, JSON.stringify(users, null, 2), 'utf8');
+    fs.renameSync(tempFile, USERS_FILE);
+    return true;
+  } catch (err) {
+    console.error('Error writing users file:', err);
+    return false;
+  }
+};
+
 // ================= API ROUTES =================
+
+// 0. AUTHENTICATION ROUTES (Signup & Login)
+app.post('/api/auth/signup', (req, res) => {
+  try {
+    const { name, email, password, role } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Naam daalna zaroori hai (Name is required)' });
+    }
+    if (!email || !email.trim()) {
+      return res.status(400).json({ error: 'Email daalna zaroori hai (Email is required)' });
+    }
+    if (!password || password.length < 4) {
+      return res.status(400).json({ error: 'Password kam se kam 4 aksharo ka hona chahiye (Min 4 chars)' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const users = loadUsers();
+
+    if (users.some(u => u.email && u.email.toLowerCase() === cleanEmail)) {
+      return res.status(400).json({ error: 'Ye email pehle se registered hai! Kripya Login karein.' });
+    }
+
+    const assignedRole = role === 'Developer' ? 'Developer' : 'Staff/Tester';
+    const newUser = {
+      id: `USR-${Date.now().toString(36).toUpperCase()}`,
+      name: name.trim(),
+      email: cleanEmail,
+      password: password.trim(),
+      role: assignedRole,
+      createdAt: new Date().toISOString()
+    };
+
+    users.push(newUser);
+    saveUsers(users);
+
+    res.status(201).json({
+      success: true,
+      message: 'Account successfully create ho gaya!',
+      user: {
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role
+      },
+      token: uuidv4()
+    });
+  } catch (err) {
+    console.error('Signup error:', err);
+    res.status(500).json({ error: 'Signup failed. Please try again.' });
+  }
+});
+
+app.post('/api/auth/login', (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email aur Password dono daalna zaroori hai' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+    const users = loadUsers();
+
+    const user = users.find(u => u.email && u.email.toLowerCase() === cleanEmail);
+    if (!user || user.password !== cleanPassword) {
+      return res.status(401).json({ error: 'Galat Email ya Password! Kripya dobara check karein.' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Login safal raha!',
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      },
+      token: uuidv4()
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Login failed. Please try again.' });
+  }
+});
+
+app.get('/api/auth/me', (req, res) => {
+  const emailQuery = req.query.email;
+  if (!emailQuery) {
+    return res.status(401).json({ error: 'Email parameter required' });
+  }
+
+  const users = loadUsers();
+  const user = users.find(u => u.email && u.email.toLowerCase() === emailQuery.trim().toLowerCase());
+  if (user) {
+    return res.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role
+    });
+  }
+
+  res.status(404).json({ error: 'User not found' });
+});
 
 // 1. Health check & Config status
 app.get('/api/config', (req, res) => {
   res.json({
     status: 'ok',
+    adminEmail: ADMIN_EMAIL,
     cloudinaryEnabled: isCloudinaryConfigured,
     storageType: isCloudinaryConfigured ? 'Cloudinary Cloud Storage' : 'Local Disk Storage (/uploads)',
     timestamp: new Date().toISOString()
