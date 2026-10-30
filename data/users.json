@@ -3,8 +3,9 @@
     "id": "USR-ADMIN-01",
     "name": "Super Admin",
     "email": "admin@shifteronline.com",
-    "password": "admin123",
+    "password": "ShifterAdmin@2026!Secure",
     "role": "Admin",
+    "status": "approved",
     "createdAt": "2026-10-30T10:00:00.000Z"
   }
 ]

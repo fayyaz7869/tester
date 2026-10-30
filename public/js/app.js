@@ -1,7 +1,7 @@
 // Simple & Attractive Testing Point Hub JavaScript
 
 const state = {
-  activeTab: 'pending', // 'pending', 'process', 'done', 'all'
+  activeTab: 'pending', // 'pending', 'process', 'done', 'all', 'approvals'
   searchQuery: '',
   points: [],
   selectedImageFile: null,
@@ -23,7 +23,8 @@ const elements = {
   logoutBtn: document.getElementById('logoutBtn'),
   openAuthBtn: document.getElementById('openAuthBtn'),
 
-  // Add Point Form
+  // Add Point Card & Form
+  addPointCard: document.querySelector('.add-point-card'),
   authorIndicator: document.getElementById('authorIndicator'),
   authorIndicatorName: document.getElementById('authorIndicatorName'),
   authorIndicatorRole: document.getElementById('authorIndicatorRole'),
@@ -42,10 +43,16 @@ const elements = {
   badgeProcess: document.getElementById('badgeProcess'),
   badgeDone: document.getElementById('badgeDone'),
   badgeAll: document.getElementById('badgeAll'),
+  tabApprovalsBtn: document.getElementById('tabApprovalsBtn'),
+  badgeApprovals: document.getElementById('badgeApprovals'),
   searchInput: document.getElementById('searchInput'),
+  searchWrap: document.getElementById('searchWrap'),
 
-  // List Container
+  // List Containers
   pointsList: document.getElementById('pointsList'),
+  approvalsSection: document.getElementById('approvalsSection'),
+  approvalsList: document.getElementById('approvalsList'),
+  refreshApprovalsBtn: document.getElementById('refreshApprovalsBtn'),
 
   // Auth Modal
   authModal: document.getElementById('authModal'),
@@ -154,12 +161,22 @@ function updateUserUI() {
     if (state.currentUser.role === 'Admin') {
       elements.headerUserRole.classList.add('role-admin');
       elements.headerAvatar.textContent = '🛡️';
-    } else if (state.currentUser.role === 'Developer') {
-      elements.headerUserRole.classList.add('role-developer');
-      elements.headerAvatar.textContent = '🛠️';
+      // Show Admin-only Approvals tab
+      elements.tabApprovalsBtn.style.display = 'inline-flex';
     } else {
-      elements.headerUserRole.classList.add('role-tester');
-      elements.headerAvatar.textContent = '🧪';
+      elements.tabApprovalsBtn.style.display = 'none';
+      if (state.activeTab === 'approvals') {
+        state.activeTab = 'pending';
+        switchTab('pending');
+      }
+
+      if (state.currentUser.role === 'Developer') {
+        elements.headerUserRole.classList.add('role-developer');
+        elements.headerAvatar.textContent = '🛠️';
+      } else {
+        elements.headerUserRole.classList.add('role-tester');
+        elements.headerAvatar.textContent = '🧪';
+      }
     }
 
     elements.authorIndicator.style.display = 'block';
@@ -170,6 +187,7 @@ function updateUserUI() {
     elements.userProfileBar.style.display = 'none';
     elements.openAuthBtn.style.display = 'inline-flex';
     elements.authorIndicator.style.display = 'none';
+    elements.tabApprovalsBtn.style.display = 'none';
     elements.inputAuthor.value = '';
     elements.authModal.classList.add('active');
   }
@@ -191,7 +209,11 @@ async function init() {
   checkUserSession();
   await checkConfig();
   await loadStats();
-  await loadPoints();
+  if (state.activeTab === 'approvals') {
+    await loadApprovalsList();
+  } else {
+    await loadPoints();
+  }
   bindEvents();
 }
 
@@ -222,8 +244,33 @@ async function loadStats() {
     elements.badgeProcess.textContent = stats.process || 0;
     elements.badgeDone.textContent = stats.done || 0;
     elements.badgeAll.textContent = stats.total || 0;
+    if (elements.badgeApprovals) {
+      elements.badgeApprovals.textContent = stats.pendingUsers || 0;
+    }
   } catch (err) {
     console.error('Stats load failed', err);
+  }
+}
+
+// Switch Tab logic (Points vs Approvals)
+function switchTab(targetTab) {
+  state.activeTab = targetTab;
+  document.querySelectorAll('.tab-button').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === targetTab);
+  });
+
+  if (targetTab === 'approvals') {
+    elements.approvalsSection.style.display = 'flex';
+    elements.pointsList.style.display = 'none';
+    elements.addPointCard.style.display = 'none';
+    elements.searchWrap.style.display = 'none';
+    loadApprovalsList();
+  } else {
+    elements.approvalsSection.style.display = 'none';
+    elements.pointsList.style.display = 'flex';
+    elements.addPointCard.style.display = 'flex';
+    elements.searchWrap.style.display = 'block';
+    loadPoints();
   }
 }
 
@@ -534,6 +581,138 @@ async function deletePoint(id) {
   }
 }
 
+// ================= ADMIN APPROVALS SECTION =================
+
+// Load and Render Admin User Approvals List
+async function loadApprovalsList() {
+  if (!state.currentUser || state.currentUser.role !== 'Admin') return;
+
+  elements.approvalsList.innerHTML = `<div class="empty-box">Loading user requests...</div>`;
+
+  try {
+    const users = await API.getAdminUsers(state.currentUser.email);
+    renderApprovalsList(users);
+  } catch (err) {
+    elements.approvalsList.innerHTML = `<div class="empty-box" style="color: #ef4444;">Error loading requests: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderApprovalsList(users) {
+  elements.approvalsList.innerHTML = '';
+
+  if (!users || users.length === 0) {
+    elements.approvalsList.innerHTML = `
+      <div class="empty-box">
+        <div style="font-size: 1.5rem;">👥</div>
+        <div style="font-weight: 600; color: #334155;">Koi user request nahi hai</div>
+        <div style="font-size: 0.85rem;">Jab koi naya user sign up karega, uski request yahan dikhegi.</div>
+      </div>
+    `;
+    return;
+  }
+
+  users.forEach(u => {
+    const card = document.createElement('div');
+    card.className = 'user-card';
+
+    const isSuperAdmin = u.email && u.email.toLowerCase() === state.adminEmail.toLowerCase();
+    const status = u.status || (isSuperAdmin ? 'approved' : 'pending');
+
+    const statusPillLabels = {
+      pending: { label: '⏳ Pending Approval', class: 'pending' },
+      approved: { label: '✅ Approved', class: 'approved' },
+      rejected: { label: '❌ Rejected', class: 'rejected' }
+    };
+    const pill = statusPillLabels[status] || statusPillLabels.pending;
+
+    let actionsHtml = '';
+    if (isSuperAdmin) {
+      actionsHtml = `<span style="font-size: 0.8rem; font-weight: 700; color: #4f46e5;">🛡️ Main Admin Account</span>`;
+    } else {
+      if (status === 'pending') {
+        actionsHtml = `
+          <button class="btn-approve" onclick="handleUserApproval('${u.id}', 'approved')">
+            ✓ Approve
+          </button>
+          <button class="btn-reject" onclick="handleUserApproval('${u.id}', 'rejected')">
+            ✕ Reject
+          </button>
+          <button class="btn-delete-user" title="Delete User" onclick="handleDeleteUser('${u.id}')">
+            🗑️
+          </button>
+        `;
+      } else if (status === 'approved') {
+        actionsHtml = `
+          <button class="btn-reject" onclick="handleUserApproval('${u.id}', 'rejected')">
+            ✕ Revoke Access
+          </button>
+          <button class="btn-delete-user" title="Delete User" onclick="handleDeleteUser('${u.id}')">
+            🗑️
+          </button>
+        `;
+      } else if (status === 'rejected') {
+        actionsHtml = `
+          <button class="btn-approve" onclick="handleUserApproval('${u.id}', 'approved')">
+            ✓ Re-Approve
+          </button>
+          <button class="btn-delete-user" title="Delete User" onclick="handleDeleteUser('${u.id}')">
+            🗑️
+          </button>
+        `;
+      }
+    }
+
+    card.innerHTML = `
+      <div class="user-card-left">
+        <div class="user-card-avatar">
+          ${u.role === 'Admin' ? '🛡️' : (u.role === 'Developer' ? '🛠️' : '🧪')}
+        </div>
+        <div class="user-card-info">
+          <div class="user-card-name-row">
+            <span class="user-card-name">${escapeHtml(u.name)}</span>
+            <span class="user-role-badge ${u.role === 'Admin' ? 'role-admin' : (u.role === 'Developer' ? 'role-developer' : 'role-tester')}">${escapeHtml(u.role)}</span>
+            <span class="status-pill ${pill.class}">${pill.label}</span>
+          </div>
+          <span class="user-card-email">${escapeHtml(u.email)}</span>
+          <span class="user-card-meta">Registered: ${formatDate(u.createdAt)}</span>
+        </div>
+      </div>
+
+      <div class="user-card-actions">
+        ${actionsHtml}
+      </div>
+    `;
+
+    elements.approvalsList.appendChild(card);
+  });
+}
+
+// Global user approval handler
+window.handleUserApproval = async function(userId, newStatus) {
+  if (!state.currentUser || state.currentUser.role !== 'Admin') return;
+  try {
+    const res = await API.updateUserApproval(userId, newStatus, state.currentUser.email);
+    showToast(newStatus === 'approved' ? 'User successfully approve ho gaya! Ab wo login kar sakta hai.' : 'User request reject ho gayi.');
+    await loadStats();
+    await loadApprovalsList();
+  } catch (err) {
+    showToast('Error: ' + err.message);
+  }
+};
+
+// Global delete user handler
+window.handleDeleteUser = async function(userId) {
+  if (!confirm('Kya aap is user request ko permanently delete karna chahte hain?')) return;
+  try {
+    await API.deleteUser(userId, state.currentUser.email);
+    showToast('User request delete kar di gayi!');
+    await loadStats();
+    await loadApprovalsList();
+  } catch (err) {
+    showToast('Error: ' + err.message);
+  }
+};
+
 // Lightbox Open & Close
 function openLightbox(url) {
   elements.lightboxImg.src = url;
@@ -609,7 +788,12 @@ function bindEvents() {
       updateUserUI();
       showToast(`Swagat hai, ${res.user.name} (${res.user.role})!`);
       elements.loginForm.reset();
-      await loadPoints();
+      await loadStats();
+      if (state.activeTab === 'approvals') {
+        await loadApprovalsList();
+      } else {
+        await loadPoints();
+      }
     } catch (err) {
       showAuthAlert(err.message || 'Login failed. Password check karein.');
     } finally {
@@ -618,7 +802,7 @@ function bindEvents() {
     }
   });
 
-  // Signup Form Submit
+  // Signup Form Submit (With Admin Approval Requirement)
   elements.signupForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     hideAuthAlert();
@@ -638,12 +822,16 @@ function bindEvents() {
 
     try {
       const res = await API.signup(name, email, password, role);
-      state.currentUser = res.user;
-      localStorage.setItem('devtest_user', JSON.stringify(res.user));
-      updateUserUI();
-      showToast(`Account ban gaya! Welcome ${res.user.name}!`);
+
+      // User registered - Now waiting for Admin Approval!
       elements.signupForm.reset();
-      await loadPoints();
+      elements.tabLoginBtn.click();
+      elements.loginEmail.value = email;
+      elements.loginPassword.focus();
+
+      showAuthAlert("✓ Successfully signed up! Kindly wait for admin approval before you can log in.", "success");
+      showToast("Account ban gaya! Kindly wait for admin approval.");
+      await loadStats();
     } catch (err) {
       showAuthAlert(err.message || 'Signup failed.');
     } finally {
@@ -652,16 +840,21 @@ function bindEvents() {
     }
   });
 
-  // Tab Switch (Pending -> Process -> Done -> All)
+  // Refresh Approvals button
+  if (elements.refreshApprovalsBtn) {
+    elements.refreshApprovalsBtn.addEventListener('click', async () => {
+      await loadStats();
+      await loadApprovalsList();
+      showToast('Requests list refreshed!');
+    });
+  }
+
+  // Tab Switch (Pending -> Process -> Done -> All -> Approvals)
   elements.statusTabs.addEventListener('click', (e) => {
     const btn = e.target.closest('.tab-button');
     if (!btn) return;
-
-    document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-
-    state.activeTab = btn.dataset.tab;
-    loadPoints();
+    const targetTab = btn.dataset.tab;
+    switchTab(targetTab);
   });
 
   // Search Input (Live debounce)
@@ -694,7 +887,6 @@ function bindEvents() {
 
   // Submit New Testing Point
   elements.submitPointBtn.addEventListener('click', async () => {
-    // Check if user is logged in
     if (!state.currentUser) {
       elements.authModal.classList.add('active');
       showAuthAlert('Testing point add karne ke liye pehle Login ya Sign Up karein!');
@@ -738,10 +930,7 @@ function bindEvents() {
       elements.imagePreviewBar.style.display = 'none';
 
       // Switch to Pending tab so user sees it right away
-      state.activeTab = 'pending';
-      document.querySelectorAll('.tab-button').forEach(b => {
-        b.classList.toggle('active', b.dataset.tab === 'pending');
-      });
+      switchTab('pending');
 
       await loadStats();
       await loadPoints();
@@ -760,7 +949,11 @@ function bindEvents() {
         await API.resetDemo();
         showToast('Demo data reset ho gaya!');
         await loadStats();
-        await loadPoints();
+        if (state.activeTab === 'approvals') {
+          await loadApprovalsList();
+        } else {
+          await loadPoints();
+        }
       } catch (err) {
         showToast('Reset error: ' + err.message);
       }

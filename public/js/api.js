@@ -31,6 +31,42 @@ const API = {
     return res.json();
   },
 
+  // Admin User Approvals API
+  async getAdminUsers(adminEmail) {
+    const res = await fetch(`${API_BASE}/admin/users?adminEmail=${encodeURIComponent(adminEmail)}`, {
+      headers: { 'x-admin-email': adminEmail }
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to load user requests');
+    }
+    return res.json();
+  },
+
+  async updateUserApproval(userId, status, adminEmail) {
+    const res = await fetch(`${API_BASE}/admin/users/${userId}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-email': adminEmail
+      },
+      body: JSON.stringify({ status, adminEmail })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to update user status');
+    return data;
+  },
+
+  async deleteUser(userId, adminEmail) {
+    const res = await fetch(`${API_BASE}/admin/users/${userId}?adminEmail=${encodeURIComponent(adminEmail)}`, {
+      method: 'DELETE',
+      headers: { 'x-admin-email': adminEmail }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to delete user');
+    return data;
+  },
+
   // Fetch system configuration (Cloudinary status)
   async getConfig() {
     const res = await fetch(`${API_BASE}/config`);

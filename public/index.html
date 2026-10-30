@@ -120,9 +120,14 @@
             <span>📋 All Points</span>
             <span class="tab-badge" id="badgeAll">0</span>
           </button>
+          <!-- Admin Only: User Approvals Tab -->
+          <button class="tab-button admin-only-tab" id="tabApprovalsBtn" data-tab="approvals" style="display: none;">
+            <span>👥 User Approvals</span>
+            <span class="tab-badge badge-warning" id="badgeApprovals">0</span>
+          </button>
         </nav>
 
-        <div class="search-input-wrap">
+        <div class="search-input-wrap" id="searchWrap">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -135,6 +140,23 @@
     <!-- Testing Points List Container -->
     <section id="pointsList" class="points-list">
       <!-- Dynamic Testing Point Cards Injected Here -->
+    </section>
+
+    <!-- Admin User Approvals Container (Shown when 'approvals' tab is active) -->
+    <section id="approvalsSection" class="approvals-section" style="display: none;">
+      <div class="approvals-header">
+        <div>
+          <h2 class="approvals-title">👥 User Registration Requests</h2>
+          <p class="approvals-sub">Naye users ke account verify aur approve karein taaki wo software me login kar sakein.</p>
+        </div>
+        <button id="refreshApprovalsBtn" class="reset-btn" title="Refresh List">
+          🔄 Refresh Requests
+        </button>
+      </div>
+
+      <div id="approvalsList" class="approvals-list">
+        <!-- Dynamic User Request Cards -->
+      </div>
     </section>
 
   </main>

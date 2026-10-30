@@ -269,6 +269,7 @@ const loadUsers = () => {
     email: ADMIN_EMAIL,
     password: ADMIN_PASSWORD,
     role: 'Admin',
+    status: 'approved',
     createdAt: new Date().toISOString()
   };
 
@@ -276,10 +277,21 @@ const loadUsers = () => {
     users.unshift(adminUserObj);
     saveUsers(users);
   } else {
-    // If admin password was changed in server.js or .env, keep it synced
+    // If admin password, role or status was changed, keep it synced
+    let changed = false;
     if (users[adminIndex].password !== ADMIN_PASSWORD) {
       users[adminIndex].password = ADMIN_PASSWORD;
+      changed = true;
+    }
+    if (users[adminIndex].role !== 'Admin') {
       users[adminIndex].role = 'Admin';
+      changed = true;
+    }
+    if (users[adminIndex].status !== 'approved') {
+      users[adminIndex].status = 'approved';
+      changed = true;
+    }
+    if (changed) {
       saveUsers(users);
     }
   }
@@ -330,6 +342,7 @@ app.post('/api/auth/signup', (req, res) => {
       email: cleanEmail,
       password: password.trim(),
       role: assignedRole,
+      status: 'pending', // <--- Requires Admin Approval before login!
       createdAt: new Date().toISOString()
     };
 
@@ -338,14 +351,15 @@ app.post('/api/auth/signup', (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Account successfully create ho gaya!',
+      pendingApproval: true,
+      message: 'Successfully signed up! Kindly wait for admin approval before you can log in.',
       user: {
         id: newUser.id,
         name: newUser.name,
         email: newUser.email,
-        role: newUser.role
-      },
-      token: uuidv4()
+        role: newUser.role,
+        status: newUser.status
+      }
     });
   } catch (err) {
     console.error('Signup error:', err);
@@ -370,6 +384,22 @@ app.post('/api/auth/login', (req, res) => {
       return res.status(401).json({ error: 'Galat Email ya Password! Kripya dobara check karein.' });
     }
 
+    // Check approval status (Super Admin is always approved)
+    const userStatus = user.status || (user.role === 'Admin' ? 'approved' : 'pending');
+    if (userStatus === 'pending') {
+      return res.status(403).json({
+        error: 'Aapka account abhi Pending Approval me hai. Kripya Admin ke approve karne tak wait karein.',
+        isPending: true
+      });
+    }
+
+    if (userStatus === 'rejected') {
+      return res.status(403).json({
+        error: 'Aapka account registration request Admin dwara Reject kar diya gaya hai. Kripya Admin se sampark karein.',
+        isRejected: true
+      });
+    }
+
     res.json({
       success: true,
       message: 'Login safal raha!',
@@ -377,7 +407,8 @@ app.post('/api/auth/login', (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        status: userStatus
       },
       token: uuidv4()
     });
@@ -400,11 +431,92 @@ app.get('/api/auth/me', (req, res) => {
       id: user.id,
       name: user.name,
       email: user.email,
-      role: user.role
+      role: user.role,
+      status: user.status || (user.role === 'Admin' ? 'approved' : 'pending')
     });
   }
 
   res.status(404).json({ error: 'User not found' });
+});
+
+// Admin User Management Endpoints
+app.get('/api/admin/users', (req, res) => {
+  const adminEmail = (req.headers['x-admin-email'] || req.query.adminEmail || '').trim().toLowerCase();
+  if (adminEmail !== ADMIN_EMAIL) {
+    return res.status(403).json({ error: 'Unauthorized. Only Admin can access user approval list.' });
+  }
+
+  const users = loadUsers();
+  const safeUsers = users.map(u => ({
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    role: u.role,
+    status: u.status || (u.role === 'Admin' ? 'approved' : 'pending'),
+    createdAt: u.createdAt
+  }));
+
+  res.json(safeUsers);
+});
+
+app.patch('/api/admin/users/:id/status', (req, res) => {
+  const adminEmail = (req.headers['x-admin-email'] || req.body.adminEmail || '').trim().toLowerCase();
+  if (adminEmail !== ADMIN_EMAIL) {
+    return res.status(403).json({ error: 'Unauthorized. Only Admin can approve/reject users.' });
+  }
+
+  const { status } = req.body;
+  if (!['approved', 'rejected', 'pending'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+
+  const users = loadUsers();
+  const user = users.find(u => u.id === req.params.id);
+  if (!user) {
+    return res.status(404).json({ error: 'User nahi mila' });
+  }
+
+  if (user.email.toLowerCase() === ADMIN_EMAIL) {
+    return res.status(400).json({ error: 'Super Admin status cannot be altered' });
+  }
+
+  user.status = status;
+  user.updatedAt = new Date().toISOString();
+  saveUsers(users);
+
+  res.json({
+    success: true,
+    message: `User status '${status}' kar diya gaya!`,
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      status: user.status
+    }
+  });
+});
+
+app.delete('/api/admin/users/:id', (req, res) => {
+  const adminEmail = (req.headers['x-admin-email'] || req.query.adminEmail || '').trim().toLowerCase();
+  if (adminEmail !== ADMIN_EMAIL) {
+    return res.status(403).json({ error: 'Unauthorized.' });
+  }
+
+  let users = loadUsers();
+  const target = users.find(u => u.id === req.params.id);
+  if (!target) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  if (target.email.toLowerCase() === ADMIN_EMAIL) {
+    return res.status(400).json({ error: 'Super Admin cannot be deleted' });
+  }
+
+  users = users.filter(u => u.id !== req.params.id);
+  saveUsers(users);
+
+  res.json({ success: true, message: 'User request delete ho gayi!' });
 });
 
 // 1. Health check & Config status
@@ -425,11 +537,15 @@ app.get('/api/stats', (req, res) => {
   const processCount = points.filter(p => normalizeStatus(p.status) === 'process').length;
   const doneCount = points.filter(p => normalizeStatus(p.status) === 'done').length;
 
+  const users = loadUsers();
+  const pendingUsersCount = users.filter(u => (u.status || 'pending') === 'pending' && u.email.toLowerCase() !== ADMIN_EMAIL).length;
+
   const stats = {
     total: points.length,
     pending: pendingCount,
     process: processCount,
     done: doneCount,
+    pendingUsers: pendingUsersCount,
     // backwards compatibility keys
     new: pendingCount,
     in_progress: processCount,
