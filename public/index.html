@@ -20,7 +20,12 @@
       </div>
 
       <div class="header-right">
-        <div id="storageBadge" class="storage-badge">
+        <div id="dbBadge" class="storage-badge" title="Database status">
+          <span class="dot"></span>
+          <span id="dbBadgeText">Database</span>
+        </div>
+
+        <div id="storageBadge" class="storage-badge" title="File storage status">
           <span class="dot"></span>
           <span id="storageBadgeText">Storage Ready</span>
         </div>
@@ -45,10 +50,6 @@
         <!-- Open Auth Modal Button (shown if user logged out) -->
         <button id="openAuthBtn" class="btn-primary" style="padding: 0.35rem 0.85rem; font-size: 0.82rem; display: none;">
           🔑 Login / Sign Up
-        </button>
-
-        <button id="resetDemoBtn" class="reset-btn" title="Reset sample test points">
-          Reset Demo
         </button>
       </div>
     </div>

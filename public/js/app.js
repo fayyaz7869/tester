@@ -11,6 +11,8 @@ const state = {
 
 // DOM References
 const elements = {
+  dbBadge: document.getElementById('dbBadge'),
+  dbBadgeText: document.getElementById('dbBadgeText'),
   storageBadge: document.getElementById('storageBadge'),
   storageBadgeText: document.getElementById('storageBadgeText'),
   resetDemoBtn: document.getElementById('resetDemoBtn'),
@@ -217,13 +219,26 @@ async function init() {
   bindEvents();
 }
 
-// Check Cloudinary / Local Storage status
+// Check Database & Cloudinary / Local Storage status
 async function checkConfig() {
   try {
     const config = await API.getConfig();
     if (config.adminEmail) {
       state.adminEmail = config.adminEmail;
     }
+    // Update MongoDB status badge
+    if (elements.dbBadge && elements.dbBadgeText) {
+      if (config.mongoConnected) {
+        elements.dbBadge.className = 'storage-badge active';
+        elements.dbBadgeText.textContent = 'MongoDB Connected 🍃';
+        elements.dbBadge.title = 'MongoDB Atlas connected';
+      } else {
+        elements.dbBadge.className = 'storage-badge';
+        elements.dbBadgeText.textContent = 'Database Ready';
+        elements.dbBadge.title = config.databaseType || 'Local JSON Store';
+      }
+    }
+    // Update Storage status badge
     if (config.cloudinaryEnabled) {
       elements.storageBadge.className = 'storage-badge active';
       elements.storageBadgeText.textContent = 'Cloudinary Active ☁️';
@@ -942,23 +957,25 @@ function bindEvents() {
     }
   });
 
-  // Reset Demo Data
-  elements.resetDemoBtn.addEventListener('click', async () => {
-    if (confirm('Sample demo testing points reset karein?')) {
-      try {
-        await API.resetDemo();
-        showToast('Demo data reset ho gaya!');
-        await loadStats();
-        if (state.activeTab === 'approvals') {
-          await loadApprovalsList();
-        } else {
-          await loadPoints();
+  // Reset Demo Data (if present)
+  if (elements.resetDemoBtn) {
+    elements.resetDemoBtn.addEventListener('click', async () => {
+      if (confirm('Sample demo testing points reset karein?')) {
+        try {
+          await API.resetDemo();
+          showToast('Demo data reset ho gaya!');
+          await loadStats();
+          if (state.activeTab === 'approvals') {
+            await loadApprovalsList();
+          } else {
+            await loadPoints();
+          }
+        } catch (err) {
+          showToast('Reset error: ' + err.message);
         }
-      } catch (err) {
-        showToast('Reset error: ' + err.message);
       }
-    }
-  });
+    });
+  }
 
   // Lightbox Close
   elements.lightboxClose.addEventListener('click', closeLightbox);
